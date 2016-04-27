@@ -1,7 +1,9 @@
 package robot;
 
 import java.util.ArrayList;
+import java.util.Random;
 
+import static java.lang.Thread.sleep;
 import static robot.Direction.*;
 import static robot.Instruction.*;
 
@@ -11,6 +13,8 @@ public class Robot {
     private Direction direction;
     private boolean isLanded;
     private RoadBook roadBook;
+    private Battery battery;
+    private LandSensor landSensor;
     /**
      * Energie ideale consommee pour la realisation d'une action. 
      */
@@ -23,6 +27,9 @@ public class Robot {
     public Robot(double energyConsumption) {
         isLanded = false;
         this.energyConsumption = energyConsumption;
+        this.battery = new Battery();
+        battery.setUp();
+        this.landSensor = new LandSensor(new Random());
     }
 
     public void land(Coordinates landPosition) {
@@ -48,7 +55,25 @@ public class Robot {
 
     public void moveForward() throws UnlandedRobotException {
         if (!isLanded) throw new UnlandedRobotException();
-        position = MapTools.nextForwardPosition(position, direction);
+        Coordinates nextPos = MapTools.nextForwardPosition(position, direction);
+        double energyCoefficient = landSensor.getPointToPointEnergyCoefficient(nextPos,position);
+        boolean enougthEnergy = false;
+        while(!enougthEnergy){
+            try{
+                battery.use(energyCoefficient*energyConsumption);
+                enougthEnergy = true;
+            } catch (InsufficientChargeException e) {
+                long tSleep = battery.timeToSufficientCharge(energyCoefficient*energyConsumption);
+                tSleep = tSleep/1000;
+                try {
+                    sleep(tSleep);
+                } catch (InterruptedException e1) {
+                    e1.printStackTrace();
+                }
+                e.printStackTrace();
+            }
+        }
+        position = nextPos;
     }
 
     public void moveBackward() throws UnlandedRobotException {
